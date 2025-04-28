@@ -48,73 +48,87 @@ void ordenarLivros();
 // Exemplo de uso da tabela hash
 int main()
 {
+    users = (User *)malloc(2 * sizeof(User));
+    userCapacity = 2;
+
+    books = (Book *)malloc(2 * sizeof(Book));
+    bookCapacity = 2;
+
     loadUsersFromFile("usuarios.txt");
 
     int opcao;
-    do {
+    do
+    {
         printf("\n===== MENU PRINCIPAL =====\n");
-        if (!logado) {
+        if (!logado)
+        {
             printf("1. Criar Login\n");
             printf("2. Logar\n");
-        } else {
-            printf("3. Registrar Livro\n");
-            printf("4. Remover Livro\n");
-            printf("5. Visualizar Livros\n");
-            printf("6. Sair\n");
+            printf("3. Visualizar Livros\n");
+            printf("0. Sair\n");
+        }
+        else
+        {
+            printf("1. Registrar Livro\n");
+            printf("2. Remover Livro\n");
+            printf("3. Visualizar Livros\n");
+            printf("0. Sair\n");
         }
         printf("===========================\n");
         printf("Escolha uma opcao: ");
         scanf("%d", &opcao);
         getchar(); // consumir \n
-
-        switch (opcao)
+    
+        if (!logado)
         {
-        case 1:
-            criarLogin();
-            break;
-
-        case 2:
-            if (logarUsuario() != -1)
+            switch (opcao)
             {
-                logado = true;
+            case 1:
+                criarLogin();
+                break;
+            case 2:
+                if (logarUsuario() != -1)
+                {
+                    logado = true;
+                }
+                break;
+            case 3:
+                printf("\n=== Visualizar Livros ===\n");
+                exibirLivros(); // você precisa criar essa função
+                break;
+            case 0:
+                printf("\nSaindo...\n");
+                break;
+            default:
+                printf("Opcao invalida. Tente novamente.\n");
+                break;
             }
-            break;
-        case 3:
-            if (logado)
+        }
+        else
+        {
+            switch (opcao)
             {
+            case 1:
                 registrarLivro();
+                break;
+            case 2:
+                removerLivro();
+                break;
+            case 3:
+                printf("\n=== Visualizar Livros ===\n");
+                exibirLivros();
+                break;
+            case 0:
+                printf("\nSaindo...\n");
+                break;
+            default:
+                printf("Opcao invalida. Tente novamente.\n");
+                break;
             }
-            else
-            {
-                printf("Voce precisa estar logado!\n");
-            }
-            break;
-
-        case 4:
-        {
-            printf("\n=== Remover Livro ===\n");
-
-            break;
         }
-
-        case 5:
-        {
-            printf("\n=== Visualizar Livro ===\n");
-
-            break;
-        }
-
-        case 0:
-            printf("\nSaindo...\n");
-            break;
-
-        default:
-            printf("Opcao invalida. Tente novamente.\n");
-            break;
-        }
-
+    
     } while (opcao != 0);
-
+    
     return 0;
 }
 
@@ -187,7 +201,7 @@ void saveLivrosToFile(const char *filename)
     }
     for (int i = 0; i < bookCount; i++)
     {
-        fprintf(file, "%s,%s,%s\n", books[i].namebook, books[i].author, books[i].pages);
+        fprintf(file, "%s,%s,%d\n", books[i].namebook, books[i].author, books[i].pages);
     }
     fclose(file); // Fecha o arquivo
 }
@@ -291,14 +305,12 @@ int logarUsuario()
 //          FUNÇÕES DE CADASTRO/LOGIN DE LIVROS
 // ======================================================
 
-// Cria um novo usuário (username e senha). Retorna -1 se falhar ou índice do novo usuário.
 int registrarLivro()
 {
     printf("\n=== REGISTRAR LIVRO ===\n");
 
     if (bookCount == bookCapacity)
     {
-        // Se o espaço dos livros acabar, aumenta a capacidade
         bookCapacity = (bookCapacity == 0) ? 2 : bookCapacity * 2;
         Book *temp = (Book *)realloc(books, bookCapacity * sizeof(Book));
         if (temp == NULL)
@@ -323,43 +335,16 @@ int registrarLivro()
 
     printf("Digite o numero de paginas: ");
     scanf("%d", &pages);
-    getchar(); // consumir o '\n' depois do número
+    getchar();
 
-    // Preenche os dados no array de livros
     strcpy(books[bookCount].namebook, namebook);
     strcpy(books[bookCount].author, author);
     books[bookCount].pages = pages;
 
     bookCount++;
 
-    // Salva no arquivo (se quiser depois implementar)
-    // saveLivrosToFile("livros.txt");
+    saveLivrosToFile("livros.txt");
 
     printf("Livro registrado com sucesso!\n");
     return bookCount - 1;
-}
-
-// Tenta logar usuário buscando apenas pelo nome e senha
-int logUsuario()
-{
-    char username[USERNAME_SIZE];
-    char password[PASSWORD_SIZE];
-    printf("Digite seu nome de usuario: ");
-    fgets(username, USERNAME_SIZE, stdin);
-    printf("Digite sua senha: ");
-    fgets(password, PASSWORD_SIZE, stdin);
-    username[strcspn(username, "\n")] = '\0';
-    password[strcspn(password, "\n")] = '\0';
-
-    for (int i = 0; i < userCount; i++)
-    {
-        if (strcmp(users[i].username, username) == 0 && strcmp(users[i].password, password) == 0)
-        {
-            printf("Login bem-sucedido!\n");
-            return i;
-        }
-    }
-
-    printf("Usuario nao encontrado.\n");
-    return -1;
 }
