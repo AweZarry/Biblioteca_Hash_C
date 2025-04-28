@@ -9,7 +9,9 @@
 #define BOOKNAME_SIZE 50
 #define AUTHORNAME_SIZE 99
 
-// ==== ESTRUTURAS ====
+//=======================================================
+//                      ESTRUTURAS
+// ======================================================
 
 typedef struct
 {
@@ -22,17 +24,23 @@ typedef struct Livro
     char namebook[BOOKNAME_SIZE];
     char author[AUTHORNAME_SIZE];
     int pages;
-    struct Livro *next; // para tratar colisões
+    struct Livro *next;
 } Livro;
 
-// ==== VARIÁVEIS GLOBAIS ====
+//=======================================================
+//                   VARIAVEIS GLOBAIS
+// ======================================================
+
 User *users = NULL;
 int userCount = 0;
 bool logado = false;
 
-Livro *livroTable[SIZE]; // Tabela hash para livros
+Livro *livroTable[SIZE];
 
-// ==== FUNÇÕES ====
+//=======================================================
+//                 ATALHOS FUNÇÕES
+// ======================================================
+
 unsigned int hash(const char *key);
 
 void inserirLivro(Livro novoLivro);
@@ -48,8 +56,12 @@ void loadLivrosFromFile(const char *filename);
 int criarLogin();
 int logarUsuario();
 int registrarLivro();
+void removerLivroDoSistema();
 
-// ==== FUNÇÃO PRINCIPAL ====
+//=======================================================
+//                 FUNÇÃO PRINCIPAL
+// ======================================================
+
 int main()
 {
     for (int i = 0; i < SIZE; i++)
@@ -74,6 +86,7 @@ int main()
             printf("1. Registrar Livro\n");
             printf("2. Visualizar Livros\n");
             printf("3. Buscar Livro\n");
+            printf("4. Remover Livro\n");
             printf("0. Sair\n");
         }
         printf("===========================\n");
@@ -150,6 +163,9 @@ int main()
                 }
             }
             break;
+            case 4:
+                removerLivroDoSistema();
+                break;
             case 0:
                 printf("\nSaindo...\n");
                 break;
@@ -166,7 +182,9 @@ int main()
     return 0;
 }
 
-// ==== HASH PARA LIVROS ====
+//=======================================================
+//                   HASH PARA LIVROS
+// ======================================================
 
 unsigned int hash(const char *key)
 {
@@ -220,7 +238,9 @@ void removerLivro(const char *nomeLivro)
     }
 }
 
-// ==== FUNÇÕES DE ARQUIVO PARA USUARIOS ====
+//=======================================================
+//           FUNÇÕES DE ARQUIVO PARA USUARIOS
+// ======================================================
 
 void saveUsersToFile(const char *filename)
 {
@@ -261,7 +281,9 @@ void loadUsersFromFile(const char *filename)
     fclose(file);
 }
 
-// ==== FUNÇÕES DE ARQUIVO PARA LIVROS ====
+//=======================================================
+//             FUNÇÕES DE ARQUIVO PARA LIVROS
+// ======================================================
 
 void saveLivrosToFile(const char *filename)
 {
@@ -309,7 +331,9 @@ void loadLivrosFromFile(const char *filename)
     fclose(file);
 }
 
-// ==== FUNÇÕES DE LOGIN/REGISTRO ====
+//=======================================================
+//             FUNÇÕES DE LOGIN/CADASTRO
+// ======================================================
 
 int criarLogin()
 {
@@ -381,7 +405,9 @@ int logarUsuario()
     return -1;
 }
 
-// ==== REGISTRAR LIVRO ====
+//=======================================================
+//          FUNÇÕES DE REGISTRO/REMOVER LIVROS
+// ======================================================
 
 int registrarLivro()
 {
@@ -398,11 +424,33 @@ int registrarLivro()
 
     printf("Numero de paginas: ");
     scanf("%d", &novo.pages);
-    getchar(); // limpar buffer
+    getchar();
 
     inserirLivro(novo);
     saveLivrosToFile("livros.txt");
 
     printf("Livro registrado com sucesso!\n");
     return 0;
+}
+
+void removerLivroDoSistema()
+{
+    printf("\n=== REMOVER LIVRO ===\n");
+    char nomeRemover[BOOKNAME_SIZE];
+
+    printf("Digite o nome do livro que deseja remover: ");
+    fgets(nomeRemover, BOOKNAME_SIZE, stdin);
+    nomeRemover[strcspn(nomeRemover, "\n")] = '\0'; // Remove \n do final
+
+    Livro *livroEncontrado = buscarLivro(nomeRemover);
+    if (livroEncontrado)
+    {
+        removerLivro(nomeRemover);      // Remove da tabela hash
+        saveLivrosToFile("livros.txt"); // Atualiza o arquivo
+        printf("Livro removido com sucesso!\n");
+    }
+    else
+    {
+        printf("Livro nao encontrado.\n");
+    }
 }
