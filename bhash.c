@@ -94,7 +94,6 @@ int main()
                 break;
             case 3:
                 printf("\n=== Visualizar Livros ===\n");
-                exibirLivros(); // você precisa criar essa função
                 break;
             case 0:
                 printf("\nSaindo...\n");
@@ -112,11 +111,9 @@ int main()
                 registrarLivro();
                 break;
             case 2:
-                removerLivro();
                 break;
             case 3:
                 printf("\n=== Visualizar Livros ===\n");
-                exibirLivros();
                 break;
             case 0:
                 printf("\nSaindo...\n");
@@ -258,9 +255,10 @@ int criarLogin()
         strcpy(users[userCount].username, username);
         strcpy(users[userCount].password, password);
 
-        saveUsersToFile("usuarios.txt");
-
         userCount++;
+
+        saveUsersToFile("usuarios.txt");
+        
         printf("Usuario criado com sucesso!\n");
 
         // Retorna o índice do novo usuário
