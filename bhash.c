@@ -35,6 +35,8 @@ int bookCapacity = 0; // Capacidade atual do array de livros
 // ==== FUNÇÕES DE CADASTRO/LOGIN DE USUARIOS ====
 int criarLogin();
 int logarUsuario();
+void loadUsersFromFile();
+void saveUsersToFile();
 
 // ==== FUNÇÕES DE CADASTRO/LOGIN DE LIVROS ====
 int registrarLivro();
@@ -46,6 +48,8 @@ void ordenarLivros();
 
 // Exemplo de uso da tabela hash
 int main() {
+    loadUsersFromFile("usuarios.txt");
+
     
     int opcao;
     do
@@ -104,19 +108,50 @@ int main() {
 }
 
 // ======================================================
-//           FUNÇÕES DE SALVAMENTO DE USUARIOS
+//           FUNÇÕES DE SALVAR E LER DE USUARIOS
 // ======================================================
 
 void saveUsersToFile(const char *filename) {
-    FILE *file = fopen(filename, "w"); // Abre o arquivo para escrita
+    FILE *file = fopen(filename, "w"); // Abre para escrita
     if (file == NULL) {
         perror("Erro ao abrir o arquivo");
         return;
     }
     for (int i = 0; i < userCount; i++) {
-        fprintf(file, "%s,%s,%d\n", users[i].username, users[i].password);
+        fprintf(file, "%s,%s\n", users[i].username, users[i].password); 
+        // <- aqui estava errado no seu código
     }
-    fclose(file); // Fecha o arquivo
+    fclose(file);
+}
+
+void loadUsersFromFile(const char *filename) {
+    FILE *file = fopen(filename, "r"); // Abre para leitura
+    if (file == NULL) {
+        // Se o arquivo não existe, apenas retorna (primeiro uso do programa, por exemplo)
+        return;
+    }
+
+    char line[USERNAME_SIZE + PASSWORD_SIZE + 2]; // buffer para a linha inteira
+
+    while (fgets(line, sizeof(line), file)) {
+        // Remove o \n no final
+        line[strcspn(line, "\n")] = '\0';
+
+        char *token = strtok(line, ",");
+        if (token == NULL) continue;
+
+        strcpy(users[userCount].username, token);
+
+        token = strtok(NULL, ",");
+        if (token == NULL) continue;
+
+        strcpy(users[userCount].password, token);
+
+        userCount++;
+        // Se quiser segurança, aqui você também pode checar userCapacity e fazer realloc se necessário
+    }
+
+    fclose(file);
 }
 
 // ======================================================
@@ -129,7 +164,7 @@ void saveLivrosToFile(const char *filename) {
         perror("Erro ao abrir o arquivo");
         return;
     }
-    for (int i = 0; i < userCount; i++) {
+    for (int i = 0; i < bookCount; i++) {
         fprintf(file, "%s,%s,%d\n", users[i].username, users[i].password);
     }
     fclose(file); // Fecha o arquivo
@@ -182,11 +217,13 @@ int criarLogin()
         }
     }
 
-    if (password == confpassword)
+    if (strcmp(password, confpassword) == 0)
     {
         // Armazenar no array global
     strcpy(users[userCount].username, username);
     strcpy(users[userCount].password, password);
+
+    saveUsersToFile("usuarios.txt");
 
     userCount++;
     printf("Usuario criado com sucesso!\n");
