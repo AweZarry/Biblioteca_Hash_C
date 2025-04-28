@@ -3,58 +3,60 @@
 #include <string.h>
 #include <stdbool.h>
 
-#define SIZE 100 // Tamanho da tabela hash
+#define SIZE 100
 #define USERNAME_SIZE 50
 #define PASSWORD_SIZE 12
 #define BOOKNAME_SIZE 50
 #define AUTHORNAME_SIZE 99
 
-// ==== ESTRUTURA PARA USUÁRIOS ====
+// ==== ESTRUTURAS ====
+
 typedef struct
 {
     char username[USERNAME_SIZE];
     char password[PASSWORD_SIZE];
 } User;
 
-// ==== ESTRUTURA PARA USUÁRIOS ====
-typedef struct
+typedef struct Livro
 {
     char namebook[BOOKNAME_SIZE];
     char author[AUTHORNAME_SIZE];
     int pages;
-} Book;
+    struct Livro *next; // para tratar colisões
+} Livro;
 
-// ==== VARIÁVEIS GLOBAIS (PARA SIMPLICIDADE) ====
-User *users = NULL;   // Ponteiro para array dinâmico de usuários
-int userCount = 0;    // Quantos usuários já cadastramos
-int userCapacity = 0; // Capacidade atual do array de usuários
+// ==== VARIÁVEIS GLOBAIS ====
+User *users = NULL;
+int userCount = 0;
 bool logado = false;
-Book *books = NULL;   // Ponteiro para array dinâmico de livros
-int bookCount = 0;    // Quantos livros já cadastramos
-int bookCapacity = 0; // Capacidade atual do array de livros
 
-// ==== FUNÇÕES DE CADASTRO/LOGIN DE USUARIOS ====
+Livro *livroTable[SIZE]; // Tabela hash para livros
+
+// ==== FUNÇÕES ====
+unsigned int hash(const char *key);
+
+void inserirLivro(Livro novoLivro);
+Livro *buscarLivro(const char *nomeLivro);
+void removerLivro(const char *nomeLivro);
+
+void saveUsersToFile(const char *filename);
+void loadUsersFromFile(const char *filename);
+
+void saveLivrosToFile(const char *filename);
+void loadLivrosFromFile(const char *filename);
+
 int criarLogin();
 int logarUsuario();
-void loadUsersFromFile(const char *filename);
-void saveUsersToFile(const char *filename);
-
-// ==== FUNÇÕES DE CADASTRO/LOGIN DE LIVROS ====
 int registrarLivro();
-int removerLivro();
-void exibirLivros();
-void ordenarLivros();
 
-// Exemplo de uso da tabela hash
+// ==== FUNÇÃO PRINCIPAL ====
 int main()
 {
-    users = (User *)malloc(2 * sizeof(User));
-    userCapacity = 2;
-
-    books = (Book *)malloc(2 * sizeof(Book));
-    bookCapacity = 2;
+    for (int i = 0; i < SIZE; i++)
+        livroTable[i] = NULL;
 
     loadUsersFromFile("usuarios.txt");
+    loadLivrosFromFile("livros.txt");
 
     int opcao;
     do
@@ -70,15 +72,15 @@ int main()
         else
         {
             printf("1. Registrar Livro\n");
-            printf("2. Remover Livro\n");
-            printf("3. Visualizar Livros\n");
+            printf("2. Visualizar Livros\n");
+            printf("3. Buscar Livro\n");
             printf("0. Sair\n");
         }
         printf("===========================\n");
         printf("Escolha uma opcao: ");
         scanf("%d", &opcao);
-        getchar(); // consumir \n
-    
+        getchar(); // limpar buffer
+
         if (!logado)
         {
             switch (opcao)
@@ -86,21 +88,29 @@ int main()
             case 1:
                 criarLogin();
                 break;
+
             case 2:
-                if (logarUsuario() != -1)
-                {
+                if (logarUsuario() == 0)
                     logado = true;
-                }
                 break;
             case 3:
-                printf("\n=== Visualizar Livros ===\n");
+                printf("\n=== Livros Cadastrados ===\n");
+                for (int i = 0; i < SIZE; i++)
+                {
+                    Livro *atual = livroTable[i];
+                    while (atual)
+                    {
+                        printf("Livro: %s | Autor: %s | Paginas: %d\n", atual->namebook, atual->author, atual->pages);
+                        atual = atual->next;
+                    }
+                }
                 break;
+
             case 0:
                 printf("\nSaindo...\n");
                 break;
             default:
-                printf("Opcao invalida. Tente novamente.\n");
-                break;
+                printf("Opcao invalida.\n");
             }
         }
         else
@@ -111,177 +121,251 @@ int main()
                 registrarLivro();
                 break;
             case 2:
+                printf("\n=== Livros Cadastrados ===\n");
+                for (int i = 0; i < SIZE; i++)
+                {
+                    Livro *atual = livroTable[i];
+                    while (atual)
+                    {
+                        printf("Livro: %s | Autor: %s | Paginas: %d\n", atual->namebook, atual->author, atual->pages);
+                        atual = atual->next;
+                    }
+                }
                 break;
             case 3:
-                printf("\n=== Visualizar Livros ===\n");
-                break;
+            {
+                char nomeBusca[BOOKNAME_SIZE];
+                printf("Digite o nome do livro: ");
+                fgets(nomeBusca, BOOKNAME_SIZE, stdin);
+                nomeBusca[strcspn(nomeBusca, "\n")] = '\0';
+
+                Livro *encontrado = buscarLivro(nomeBusca);
+                if (encontrado)
+                {
+                    printf("Livro encontrado: %s | Autor: %s | Paginas: %d\n", encontrado->namebook, encontrado->author, encontrado->pages);
+                }
+                else
+                {
+                    printf("Livro nao encontrado.\n");
+                }
+            }
+            break;
             case 0:
                 printf("\nSaindo...\n");
                 break;
             default:
-                printf("Opcao invalida. Tente novamente.\n");
-                break;
+                printf("Opcao invalida.\n");
             }
         }
-    
+
     } while (opcao != 0);
-    
+
+    saveLivrosToFile("livros.txt");
+    saveUsersToFile("usuarios.txt");
+
     return 0;
 }
 
-// ======================================================
-//           FUNÇÕES DE SALVAR E LER DE USUARIOS
-// ======================================================
+// ==== HASH PARA LIVROS ====
+
+unsigned int hash(const char *key)
+{
+    unsigned int hash = 0;
+    while (*key)
+        hash = (hash * 31) + *key++;
+    return hash % SIZE;
+}
+
+void inserirLivro(Livro novoLivro)
+{
+    unsigned int idx = hash(novoLivro.namebook);
+    Livro *novo = (Livro *)malloc(sizeof(Livro));
+    if (!novo)
+    {
+        perror("Erro de memoria");
+        return;
+    }
+    *novo = novoLivro;
+    novo->next = livroTable[idx];
+    livroTable[idx] = novo;
+}
+
+Livro *buscarLivro(const char *nomeLivro)
+{
+    unsigned int idx = hash(nomeLivro);
+    Livro *atual = livroTable[idx];
+    while (atual)
+    {
+        if (strcmp(atual->namebook, nomeLivro) == 0)
+            return atual;
+        atual = atual->next;
+    }
+    return NULL;
+}
+
+void removerLivro(const char *nomeLivro)
+{
+    unsigned int idx = hash(nomeLivro);
+    Livro **indireto = &livroTable[idx];
+    while (*indireto)
+    {
+        if (strcmp((*indireto)->namebook, nomeLivro) == 0)
+        {
+            Livro *temp = *indireto;
+            *indireto = temp->next;
+            free(temp);
+            return;
+        }
+        indireto = &(*indireto)->next;
+    }
+}
+
+// ==== FUNÇÕES DE ARQUIVO PARA USUARIOS ====
 
 void saveUsersToFile(const char *filename)
 {
-    FILE *file = fopen(filename, "w"); // Abre para escrita
-    if (file == NULL)
+    FILE *file = fopen(filename, "w");
+    if (!file)
     {
-        perror("Erro ao abrir o arquivo");
+        perror("Erro ao salvar usuarios");
         return;
     }
     for (int i = 0; i < userCount; i++)
     {
         fprintf(file, "%s,%s\n", users[i].username, users[i].password);
-        // <- aqui estava errado no seu código
     }
     fclose(file);
 }
 
 void loadUsersFromFile(const char *filename)
 {
-    FILE *file = fopen(filename, "r"); // Abre para leitura
-    if (file == NULL)
-    {
-        // Se o arquivo não existe, apenas retorna (primeiro uso do programa, por exemplo)
+    FILE *file = fopen(filename, "r");
+    if (!file)
         return;
-    }
 
-    char line[USERNAME_SIZE + PASSWORD_SIZE + 2]; // buffer para a linha inteira
-
+    char line[USERNAME_SIZE + PASSWORD_SIZE + 2];
     while (fgets(line, sizeof(line), file))
     {
-        // Remove o \n no final
         line[strcspn(line, "\n")] = '\0';
+        char *username = strtok(line, ",");
+        char *password = strtok(NULL, ",");
 
-        char *token = strtok(line, ",");
-        if (token == NULL)
-            continue;
-
-        strcpy(users[userCount].username, token);
-
-        token = strtok(NULL, ",");
-        if (token == NULL)
-            continue;
-
-        strcpy(users[userCount].password, token);
-
-        userCount++;
-        // Se quiser segurança, aqui você também pode checar userCapacity e fazer realloc se necessário
+        if (username && password)
+        {
+            users = realloc(users, (userCount + 1) * sizeof(User));
+            strcpy(users[userCount].username, username);
+            strcpy(users[userCount].password, password);
+            userCount++;
+        }
     }
-
     fclose(file);
 }
 
-// ======================================================
-//           FUNÇÕES DE SALVAMENTO DE LIVROS
-// ======================================================
+// ==== FUNÇÕES DE ARQUIVO PARA LIVROS ====
 
 void saveLivrosToFile(const char *filename)
 {
-    FILE *file = fopen(filename, "w"); // Abre o arquivo para escrita
-    if (file == NULL)
+    FILE *file = fopen(filename, "w");
+    if (!file)
     {
-        perror("Erro ao abrir o arquivo");
+        perror("Erro ao salvar livros");
         return;
     }
-    for (int i = 0; i < bookCount; i++)
+    for (int i = 0; i < SIZE; i++)
     {
-        fprintf(file, "%s,%s,%d\n", books[i].namebook, books[i].author, books[i].pages);
+        Livro *atual = livroTable[i];
+        while (atual)
+        {
+            fprintf(file, "%s,%s,%d\n", atual->namebook, atual->author, atual->pages);
+            atual = atual->next;
+        }
     }
-    fclose(file); // Fecha o arquivo
+    fclose(file);
 }
 
-// ======================================================
-//               FUNÇÕES DE CADASTRO/LOGIN
-// ======================================================
+void loadLivrosFromFile(const char *filename)
+{
+    FILE *file = fopen(filename, "r");
+    if (!file)
+        return;
 
-// Cria um novo usuário (username e senha). Retorna -1 se falhar ou índice do novo usuário.
+    char line[BOOKNAME_SIZE + AUTHORNAME_SIZE + 20];
+    while (fgets(line, sizeof(line), file))
+    {
+        line[strcspn(line, "\n")] = '\0';
+        char *namebook = strtok(line, ",");
+        char *author = strtok(NULL, ",");
+        char *pagesStr = strtok(NULL, ",");
+
+        if (namebook && author && pagesStr)
+        {
+            Livro novo;
+            strcpy(novo.namebook, namebook);
+            strcpy(novo.author, author);
+            novo.pages = atoi(pagesStr);
+            inserirLivro(novo);
+        }
+    }
+    fclose(file);
+}
+
+// ==== FUNÇÕES DE LOGIN/REGISTRO ====
+
 int criarLogin()
 {
     printf("\n=== CRIAR LOGIN ===\n");
-
-    // Verifica se precisamos aumentar a capacidade antes de ler o novo username
-    if (userCount == userCapacity)
-    {
-        // dobramos a capacidade
-        userCapacity *= 2;
-        User *temp = (User *)realloc(users, userCapacity * sizeof(User));
-        if (temp == NULL)
-        {
-            printf("Erro ao realocar memoria para usuarios.\n");
-            return -1;
-        }
-        users = temp;
-    }
-
     char username[USERNAME_SIZE];
     char password[PASSWORD_SIZE];
     char confpassword[PASSWORD_SIZE];
+
     printf("Digite um nome de usuario: ");
     fgets(username, USERNAME_SIZE, stdin);
     printf("Digite uma senha: ");
     fgets(password, PASSWORD_SIZE, stdin);
     printf("Confirme a sua senha: ");
     fgets(confpassword, PASSWORD_SIZE, stdin);
-    username[strcspn(username, "\n")] = '\0';         // remover \n
-    password[strcspn(password, "\n")] = '\0';         // remover \n
-    confpassword[strcspn(confpassword, "\n")] = '\0'; // remover \n
 
-    // Verificar se já existe
+    username[strcspn(username, "\n")] = '\0';
+    password[strcspn(password, "\n")] = '\0';
+    confpassword[strcspn(confpassword, "\n")] = '\0';
+
     for (int i = 0; i < userCount; i++)
     {
         if (strcmp(users[i].username, username) == 0)
         {
-            printf("Esse nome de usuario ja existe. Tente outro.\n");
+            printf("Usuario ja existente.\n");
             return -1;
         }
     }
 
     if (strcmp(password, confpassword) == 0)
     {
-        // Armazenar no array global
+        users = realloc(users, (userCount + 1) * sizeof(User));
         strcpy(users[userCount].username, username);
         strcpy(users[userCount].password, password);
-
         userCount++;
-
         saveUsersToFile("usuarios.txt");
-        
         printf("Usuario criado com sucesso!\n");
-
-        // Retorna o índice do novo usuário
-        return (userCount - 1);
+        return 0;
     }
     else
     {
-        printf("Senhas não são iguais\n");
+        printf("Senhas nao conferem.\n");
         return -1;
     }
 }
 
-// Tenta logar usuário buscando apenas pelo nome e senha
 int logarUsuario()
 {
     printf("\n=== FAZER LOGIN ===\n");
-
     char username[USERNAME_SIZE];
     char password[PASSWORD_SIZE];
+
     printf("Digite seu nome de usuario: ");
     fgets(username, USERNAME_SIZE, stdin);
     printf("Digite sua senha: ");
     fgets(password, PASSWORD_SIZE, stdin);
+
     username[strcspn(username, "\n")] = '\0';
     password[strcspn(password, "\n")] = '\0';
 
@@ -290,59 +374,35 @@ int logarUsuario()
         if (strcmp(users[i].username, username) == 0 && strcmp(users[i].password, password) == 0)
         {
             printf("Login bem-sucedido!\n");
-
-            return i;
+            return 0;
         }
     }
-
-    printf("Usuario nao encontrado.\n");
+    printf("Usuario ou senha incorretos.\n");
     return -1;
 }
 
-// ======================================================
-//          FUNÇÕES DE CADASTRO/LOGIN DE LIVROS
-// ======================================================
+// ==== REGISTRAR LIVRO ====
 
 int registrarLivro()
 {
     printf("\n=== REGISTRAR LIVRO ===\n");
+    Livro novo;
 
-    if (bookCount == bookCapacity)
-    {
-        bookCapacity = (bookCapacity == 0) ? 2 : bookCapacity * 2;
-        Book *temp = (Book *)realloc(books, bookCapacity * sizeof(Book));
-        if (temp == NULL)
-        {
-            printf("Erro ao realocar memoria para livros.\n");
-            return -1;
-        }
-        books = temp;
-    }
+    printf("Nome do livro: ");
+    fgets(novo.namebook, BOOKNAME_SIZE, stdin);
+    novo.namebook[strcspn(novo.namebook, "\n")] = '\0';
 
-    char namebook[BOOKNAME_SIZE];
-    char author[AUTHORNAME_SIZE];
-    int pages;
+    printf("Autor do livro: ");
+    fgets(novo.author, AUTHORNAME_SIZE, stdin);
+    novo.author[strcspn(novo.author, "\n")] = '\0';
 
-    printf("Digite o nome do livro: ");
-    fgets(namebook, BOOKNAME_SIZE, stdin);
-    namebook[strcspn(namebook, "\n")] = '\0';
+    printf("Numero de paginas: ");
+    scanf("%d", &novo.pages);
+    getchar(); // limpar buffer
 
-    printf("Digite o nome do autor: ");
-    fgets(author, AUTHORNAME_SIZE, stdin);
-    author[strcspn(author, "\n")] = '\0';
-
-    printf("Digite o numero de paginas: ");
-    scanf("%d", &pages);
-    getchar();
-
-    strcpy(books[bookCount].namebook, namebook);
-    strcpy(books[bookCount].author, author);
-    books[bookCount].pages = pages;
-
-    bookCount++;
-
+    inserirLivro(novo);
     saveLivrosToFile("livros.txt");
 
     printf("Livro registrado com sucesso!\n");
-    return bookCount - 1;
+    return 0;
 }
